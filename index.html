@@ -131,6 +131,12 @@
     font-size: 12px;
     color: var(--muted);
   }
+  .manual-upload-control,
+  .upload-banner .manual-upload-control,
+  .btn-upload.manual-upload-control { display: none; }
+  .manual-upload-control.show,
+  .upload-banner .manual-upload-control.show,
+  .btn-upload.manual-upload-control.show { display: inline-flex; }
   .upload-status.ok { color: var(--green); }
   .upload-status.err { color: var(--ore); }
 
@@ -523,21 +529,21 @@
 
 <div class="upload-banner">
   <div class="upload-banner-inner">
-    <label>
+    <label id="manualUploadControl" class="manual-upload-control">
       📂 Upload New Excel
       <input type="file" id="fileInput" accept=".xlsx">
     </label>
-    <span class="upload-status" id="uploadStatus">Please upload the latest Excel file.</span>
+    <span class="upload-status" id="uploadStatus">Downloading Duty Chart…</span>
   </div>
 </div>
 
 <div class="main">
   <div id="startScreen" class="start-screen">
     <div class="start-card">
-      <div class="start-title">Upload Latest Duty Chart Excel</div>
-      <p class="start-text">Please upload the latest duty chart Excel file to load the dashboard. Data will not persist after refresh.</p>
-      <label for="fileInput" class="btn-upload">📂 Choose Excel File</label>
-      <p class="start-note">After upload, the employee list and group summary will appear here.</p>
+      <div class="start-title" id="startTitle">Loading Duty Chart</div>
+      <p class="start-text" id="startText">Downloading the latest duty chart Excel file automatically.</p>
+      <label for="fileInput" class="btn-upload manual-upload-control" id="startUploadControl">📂 Choose Excel File</label>
+      <p class="start-note" id="startNote">The employee list and group summary will appear here after loading.</p>
     </div>
   </div>
 
@@ -647,10 +653,12 @@ let filteredRows = [];
 let currentPage = 1;
 const PAGE_SIZE = 20;
 let activeTab = 'list';
+const DUTY_CHART_URL = 'https://dl.dropboxusercontent.com/scl/fi/ptpv93vsf2p99zuhz5ygh/DUTY-CHART.xlsx?rlkey=lwbwu01l3837c7191fqp992ks&st=6hcwp5gy&dl=1';
 
 // ─── INIT ───
 function init() {
-  setNoDataMode();
+  setLoadingMode();
+  downloadDutyChart();
 }
 
 function loadData(d) {
@@ -677,6 +685,7 @@ function loadData(d) {
   const [ed,em,ey] = dates[dates.length-1].split('-');
   const months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   document.getElementById('dateRange').textContent = `${sd} ${months[+sm]} – ${ed} ${months[+em]} ${ey}`;
+  setDefaultDateAndShift();
   applyFilters();
 }
 
@@ -721,11 +730,56 @@ function applyFilters() {
   renderGroupSummary(f);
 }
 
-function setNoDataMode() {
+function setLoadingMode() {
   document.getElementById('startScreen').style.display = '';
   document.getElementById('appContent').style.display = 'none';
-  document.getElementById('uploadStatus').textContent = 'Please upload the latest Excel file.';
+  document.getElementById('startTitle').textContent = 'Loading Duty Chart';
+  document.getElementById('startText').textContent = 'Downloading the latest duty chart Excel file automatically.';
+  document.getElementById('startNote').textContent = 'The employee list and group summary will appear here after loading.';
+  document.getElementById('uploadStatus').textContent = 'Downloading Duty Chart…';
   document.getElementById('uploadStatus').className = 'upload-status';
+  setManualUploadVisible(false);
+}
+
+function setFallbackMode(message) {
+  document.getElementById('startScreen').style.display = '';
+  document.getElementById('appContent').style.display = 'none';
+  document.getElementById('startTitle').textContent = 'Upload Duty Chart Excel';
+  document.getElementById('startText').textContent = message;
+  document.getElementById('startNote').textContent = 'After upload, the employee list and group summary will appear here.';
+  document.getElementById('uploadStatus').textContent = message;
+  document.getElementById('uploadStatus').className = 'upload-status err';
+  setManualUploadVisible(true);
+}
+
+function setManualUploadVisible(isVisible) {
+  ['manualUploadControl','startUploadControl'].forEach(id => {
+    document.getElementById(id).classList.toggle('show', isVisible);
+  });
+}
+
+function setDefaultDateAndShift() {
+  const today = formatDate(new Date());
+  const fd = document.getElementById('filterDate');
+  if (DATA.dates.includes(today)) fd.value = today;
+
+  const currentShift = getCurrentShift();
+  const fs = document.getElementById('filterShift');
+  if (currentShift) fs.value = currentShift;
+}
+
+function getCurrentShift() {
+  const now = new Date();
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const firstStart = 5 * 60 + 30;
+  const secondStart = 13 * 60 + 30;
+  const nightStart = 21 * 60 + 30;
+  const nightEnd = 4 * 60 + 30;
+
+  if (minutes >= firstStart && minutes < secondStart) return 'I';
+  if (minutes >= secondStart && minutes < nightStart) return 'II';
+  if (minutes >= nightStart || minutes < nightEnd) return 'N';
+  return '';
 }
 
 function renderGroupButtons(groups) {
@@ -935,7 +989,67 @@ document.getElementById('btnReset').addEventListener('click', () => {
   applyFilters();
 });
 
-// ─── EXCEL UPLOAD ───
+// ─── EXCEL LOADING ───
+async function downloadDutyChart() {
+  const status = document.getElementById('uploadStatus');
+  try {
+    status.textContent = 'Downloading Duty Chart…';
+    status.className = 'upload-status';
+
+    const response = await fetch(DUTY_CHART_URL, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Download failed (${response.status})`);
+
+    const workbookBuffer = await response.arrayBuffer();
+    const newData = parseWorkbookData(workbookBuffer, 'array');
+    loadData(newData);
+
+    status.textContent = `✓ Duty Chart downloaded automatically (${newData.employees.length} employees, ${newData.dates.length} dates)`;
+    status.className = 'upload-status ok';
+    setManualUploadVisible(false);
+  } catch (err) {
+    console.error('Automatic Duty Chart download failed:', err);
+    setFallbackMode('Automatic download failed. Please upload the Duty Chart Excel file manually.');
+  }
+}
+
+function parseWorkbookData(input, type) {
+  const wb = XLSX.read(input, { type, cellDates: true });
+  // Find DUTY CHART sheet
+  const sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('DUTY')) || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'dd-mm-yyyy' });
+  if (!rows.length) throw new Error('Empty sheet');
+  const header = rows[0];
+  const dateHeaders = header.slice(4).filter(Boolean);
+  const dates = dateHeaders.map(d => {
+    if (typeof d === 'string') {
+      // try dd-mm-yyyy
+      if (/^\d{2}-\d{2}-\d{4}$/.test(d)) return d;
+      // try dd/mm/yyyy
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) return d.replace(/\//g,'-');
+      // XLSX serial number parsed as string
+      const parsed = new Date(d);
+      if (!isNaN(parsed)) return formatDate(parsed);
+      return d;
+    }
+    return d;
+  });
+  const employees = [];
+  rows.slice(1).forEach(row => {
+    if (!row[1]) return;
+    const emp = { group: String(row[0]||'').trim(), empid: String(row[2]||''), name: String(row[3]||'').trim(), shifts: {} };
+    dateHeaders.forEach((_, i) => {
+      emp.shifts[dates[i]] = String(row[4+i]||'').trim().toUpperCase();
+    });
+    employees.push(emp);
+  });
+
+  if (!dates.length) throw new Error('No date columns found');
+  if (!employees.length) throw new Error('No employees found');
+
+  return { dates, employees };
+}
+
 document.getElementById('fileInput').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -945,46 +1059,18 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
   const reader = new FileReader();
   reader.onload = function(ev) {
     try {
-      const wb = XLSX.read(ev.target.result, { type: 'binary', cellDates: true });
-      // Find DUTY CHART sheet
-      const sheetName = wb.SheetNames.find(n => n.toUpperCase().includes('DUTY')) || wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'dd-mm-yyyy' });
-      if (!rows.length) throw new Error('Empty sheet');
-      const header = rows[0];
-      const dateHeaders = header.slice(4).filter(Boolean);
-      const dates = dateHeaders.map(d => {
-        if (typeof d === 'string') {
-          // try dd-mm-yyyy
-          if (/^\d{2}-\d{2}-\d{4}$/.test(d)) return d;
-          // try dd/mm/yyyy
-          if (/^\d{2}\/\d{2}\/\d{4}$/.test(d)) return d.replace(/\//g,'-');
-          // XLSX serial number parsed as string
-          const parsed = new Date(d);
-          if (!isNaN(parsed)) return formatDate(parsed);
-          return d;
-        }
-        return d;
-      });
-      const employees = [];
-      rows.slice(1).forEach(row => {
-        if (!row[1]) return;
-        const emp = { group: String(row[0]||'').trim(), empid: String(row[2]||''), name: String(row[3]||'').trim(), shifts: {} };
-        dateHeaders.forEach((_, i) => {
-          emp.shifts[dates[i]] = String(row[4+i]||'').trim().toUpperCase();
-        });
-        employees.push(emp);
-      });
-      const newData = { dates, employees };
+      const newData = parseWorkbookData(ev.target.result, 'array');
       loadData(newData);
-      status.textContent = `✓ Loaded: ${file.name} (${employees.length} employees, ${dates.length} dates)`;
+      status.textContent = `✓ Loaded: ${file.name} (${newData.employees.length} employees, ${newData.dates.length} dates)`;
       status.className = 'upload-status ok';
+      setManualUploadVisible(true);
     } catch (err) {
       status.textContent = '✗ Error reading file: ' + err.message;
       status.className = 'upload-status err';
+      setManualUploadVisible(true);
     }
   };
-  reader.readAsBinaryString(file);
+  reader.readAsArrayBuffer(file);
 });
 
 function formatDate(d) {
