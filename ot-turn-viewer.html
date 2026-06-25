@@ -14,6 +14,8 @@
   --border: #2a3045;
   --accent: #f5a623;
   --accent2: #e8891a;
+  --card: #1e2535;
+  --amber: #f59e0b;
   --green: #27ae60;
   --red: #e74c3c;
   --blue: #3498db;
@@ -48,7 +50,16 @@ body {
   display: flex; align-items: center; gap: 10px;
 }
 .mine-icon {
-  font-size: 26px;
+  width: 44px;
+  height: 40px;
+  background: var(--card);
+  border: 1.5px solid var(--amber);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  flex-shrink: 0;
 }
 .header h1 {
   font-family: 'Rajdhani', sans-serif;
