@@ -542,7 +542,7 @@
   <div id="startScreen" class="start-screen">
     <div class="start-card">
       <div class="start-title" id="startTitle">Loading Duty Chart</div>
-      <p class="start-text" id="startText">Downloading the latest duty chart Excel file automatically.</p>
+      <p class="start-text" id="startText">Downloading the latest duty chart Excel file.</p>
       <label for="fileInput" class="btn-upload manual-upload-control" id="startUploadControl">📂 Choose Excel File</label>
       <p class="start-note" id="startNote">The employee list and group summary will appear here after loading.</p>
     </div>
@@ -735,7 +735,7 @@ function setLoadingMode() {
   document.getElementById('startScreen').style.display = '';
   document.getElementById('appContent').style.display = 'none';
   document.getElementById('startTitle').textContent = 'Loading Duty Chart';
-  document.getElementById('startText').textContent = 'Downloading the latest duty chart Excel file automatically.';
+  document.getElementById('startText').textContent = 'Downloading the latest duty chart Excel file.';
   document.getElementById('startNote').textContent = 'The employee list and group summary will appear here after loading.';
   document.getElementById('uploadStatus').textContent = 'Downloading Duty Chart…';
   document.getElementById('uploadStatus').className = 'upload-status';
@@ -1004,7 +1004,7 @@ async function downloadDutyChart() {
     const newData = parseWorkbookData(workbookBuffer, 'array');
     loadData(newData);
 
-    status.textContent = `✓ Duty Chart downloaded automatically (${newData.employees.length} employees, ${newData.dates.length} dates)`;
+    status.textContent = `✓ Duty Chart downloaded (${newData.employees.length} employees, ${newData.dates.length} dates)`;
     status.className = 'upload-status ok';
     setManualUploadVisible(false);
   } catch (err) {
