@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>OT Turn Viewer – Deposit 11C</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Noto+Sans:wght@300;400;600&display=swap');
+:root {
+  --bg: #0e1117;
+  --surface: #181c26;
+  --surface2: #1f2535;
+  --border: #2a3045;
+  --accent: #f5a623;
+  --accent2: #e8891a;
+  --card: #1e2535;
+  --amber: #f59e0b;
+  --green: #27ae60;
+  --red: #e74c3c;
+  --blue: #3498db;
+  --yellow: #f1c40f;
+  --text: #e8eaf0;
+  --text2: #a0a8c0;
+  --text3: #6b7390;
+  --p1: #27ae60;
+  --p2: #3498db;
+  --p3: #9b59b6;
+  --radius: 10px;
+  --shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans', sans-serif;
+  min-height: 100vh;
+  font-size: 14px;
+}
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, #1a2035 0%, #0e1117 100%);
+  border-bottom: 2px solid var(--accent);
+  padding: 14px 16px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.header-title {
+  display: flex; align-items: center; gap: 10px;
+}
+.mine-icon {
+  width: 44px;
+  height: 40px;
+  background: var(--card);
+  border: 1.5px solid var(--amber);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  flex-shrink: 0;
+}
+.header h1 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 17px; font-weight: 700; color: var(--accent); line-height: 1.2;
+}
+.header .subtitle {
+  font-family: 'Noto Sans', sans-serif;
+  font-size: 11px; color: var(--text3); letter-spacing: 1px;
+}
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.author-mark {
+  margin-left: 6px;
+  color: var(--text2);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.btn-icon {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 12px; border-radius: var(--radius);
+  cursor: pointer; font-family: 'Rajdhani', sans-serif; font-size: 13px;
+  white-space: nowrap; transition: all .2s; display: flex; align-items: center; gap: 5px;
+}
+.btn-icon:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+.btn-icon.auto-on { background: var(--green); color: #fff; border-color: var(--green); }
+/* STATUS BAR */
+.status-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  font-size: 12px; color: var(--text3);
+}
+.status-bar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 6px;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text3); display: inline-block; margin-right: 5px;
+  vertical-align: middle; flex-shrink: 0;
+  transition: background 0.3s ease;
+}
+.status-dot.ok { background: var(--green); }
+.status-dot.warn { background: var(--yellow); }
+.status-dot.err { background: var(--red); }
+
+/* ── Loading / downloading state ── */
+@keyframes spin-arc {
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer-text {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+@keyframes slide-dots {
+  0%   { content: ''; }
+  25%  { content: '.'; }
+  50%  { content: '..'; }
+  75%  { content: '...'; }
+  100% { content: ''; }
+}
+.status-dot.loading {
+  width: 6px; height: 6px;
+  background: transparent;
+  border: 1px solid rgba(245,158,11,0.25);
+  border-top-color: var(--amber);
+  border-radius: 50%;
+  animation: spin-arc 0.8s linear infinite;
+}
+#statusText.downloading {
+  color: var(--amber);
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  animation: shimmer-text 1.2s ease-in-out infinite;
+}
+#statusText.downloading::after {
+  content: '';
+  display: inline-block;
+  width: 1.5ch;
+  animation: slide-dots 1.2s steps(4, end) infinite;
+}
+/* MAIN */
+.main { padding: 14px 14px 80px; max-width: 900px; margin: 0 auto; }
+/* SELECTION PANEL */
+.selection-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.panel-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--text3); margin-bottom: 12px;
+}
+.sel-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+@media (max-width: 600px) {
+  .sel-grid { grid-template-columns: 1fr 1fr; }
+  .sel-grid .group-sel { grid-column: 1 / -1; }
+}
+.sel-group label {
+  display: block; font-family: 'Rajdhani', sans-serif;
+  font-size: 11px; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;
+}
+.sel-group select, .sel-group input[type="date"] {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 12px; border-radius: 8px;
+  font-family: 'Noto Sans', sans-serif;
+  font-size: 15px; cursor: pointer;
+}
+.sel-group input[type="date"] {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+}
+.sel-group select option,
+.sel-group input[type="date"]::-webkit-calendar-picker-indicator {
+  color: var(--text);
+}
+.sel-group select:focus, .sel-group input:focus {
+  outline: none; border-color: var(--accent);
+}
+.btn-generate {
+  width: 100%; margin-top: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #000; font-family: 'Rajdhani', sans-serif;
+  font-weight: 700; font-size: 16px;
+  border: none; padding: 14px; border-radius: var(--radius);
+  cursor: pointer; transition: opacity .2s; letter-spacing: .5px;
+}
+.btn-generate:hover { opacity: .9; }
+.btn-generate:disabled { opacity: .5; cursor: not-allowed; }
+/* LOADING */
+.loading {
+  text-align: center; padding: 40px; color: var(--text3);
+}
+.spinner {
+  width: 40px; height: 40px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite; margin: 0 auto 14px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+/* RESULTS */
+.results-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+  position: sticky;
+  top: 64px;
+  z-index: 20;
+  background: var(--surface);
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 10px 20px rgba(0,0,0,.18);
+}
+.results-title {
+  font-size: 16px; font-weight: 700; color: var(--accent);
+}
+.badge {
+  padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700;
+}
+.badge-p1 { background: rgba(39,174,96,.2); color: var(--p1); border: 1px solid rgba(39,174,96,.3); }
+.badge-p2 { background: rgba(52,152,219,.2); color: var(--p2); border: 1px solid rgba(52,152,219,.3); }
+.badge-p3 { background: rgba(155,89,182,.2); color: var(--p3); border: 1px solid rgba(155,89,182,.3); }
+.badge-rest { background: rgba(241,196,15,.2); color: var(--yellow); border: 1px solid rgba(241,196,15,.3); }
+/* OT CARD */
+.ot-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.ot-card-header {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  background: var(--surface2);
+}
+.turn-no {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--accent); color: #000;
+  font-weight: 900; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.emp-name { font-weight: 700; font-size: 16px; }
+.emp-id { font-size: 11px; color: var(--text3); }
+.ot-card-body {
+  padding: 10px 14px;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .author-mark { display: none; }
+  .ot-card-body { grid-template-columns: 1fr 1fr; }
+}
+.info-cell label {
+  display: block; font-size: 10px; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .8px; margin-bottom: 3px;
+}
+.info-cell .val { font-size: 13px; font-weight: 600; }
+.shift-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 12px; font-weight: 700;
+}
+.shift-1 { background: rgba(52,152,219,.2); color: #5ba8d8; }
+.shift-2 { background: rgba(155,89,182,.2); color: #b07fd8; }
+.shift-n { background: rgba(39,174,96,.2); color: #5dba8a; }
+.shift-r { background: rgba(241,196,15,.15); color: #d4b44a; }
+.shift-x { background: rgba(127,127,127,.2); color: #888; }
+.ot-dates { font-size: 12px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.ot-card-actions {
+  padding: 10px 14px; display: flex; gap: 8px;
+  border-top: 1px solid var(--border);
+}
+.phone-display {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text2); padding: 1px 8px; border-radius: 7px;
+  font-family: 'Share Tech Mono', monospace; font-size: 10px; font-weight: 600;
+  text-decoration: none; letter-spacing: .5px;
+}
+.phone-display:hover { border-color: var(--accent); color: var(--accent); }
+.btn-call {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(39,174,96,.15); border: 1px solid rgba(39,174,96,.4);
+  color: var(--green); padding: 3px 14px; border-radius: 15px;
+  text-decoration: none; font-size: 16px; transition: all .2s;
+  flex-shrink: 0;
+}
+.btn-call:hover { background: var(--green); color: #fff; border-color: var(--green); }
+.phone-na {
+  font-size: 12px; color: var(--text3); font-style: italic;
+}
+/* PRIORITY SECTION */
+.priority-section { margin-bottom: 16px; }
+.priority-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 7px;
+  margin-bottom: 8px; font-weight: 700; font-size: 13px;
+}
+.priority-p1 { background: rgba(39,174,96,.12); color: var(--p1); }
+.priority-p2 { background: rgba(52,152,219,.12); color: var(--p2); }
+.priority-p3 { background: rgba(155,89,182,.12); color: var(--p3); }
+/* INELIGIBLE TABLE */
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-top: 14px;
+}
+.table-section-title {
+  padding: 12px 14px; background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+table { width: 100%; border-collapse: collapse; }
+th {
+  padding: 10px 12px; text-align: left; font-size: 11px;
+  color: var(--text3); text-transform: uppercase; letter-spacing: .8px;
+  border-bottom: 1px solid var(--border); background: var(--surface2);
+}
+td {
+  padding: 10px 12px; font-size: 13px;
+  border-bottom: 1px solid rgba(42,48,69,.5);
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,.03); }
+/* ALERT */
+.alert {
+  padding: 12px 14px; border-radius: 8px; margin-bottom: 12px;
+  font-size: 13px; display: flex; gap: 8px; align-items: flex-start;
+}
+.alert-warn { background: rgba(241,196,15,.1); border: 1px solid rgba(241,196,15,.3); color: #e5b94a; }
+.alert-err { background: rgba(231,76,60,.1); border: 1px solid rgba(231,76,60,.3); color: #e85c4c; }
+.alert-info { background: rgba(52,152,219,.1); border: 1px solid rgba(52,152,219,.3); color: #5ba8d8; }
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.72); padding: 18px;
+}
+.modal-overlay.show { display: flex; }
+.notice-modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid rgba(245,166,35,.45);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.notice-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.notice-icon { font-size: 24px; }
+.notice-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 18px; font-weight: 700;
+  color: var(--accent);
+}
+.notice-body {
+  padding: 14px 18px 16px;
+  color: var(--text2);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.notice-body ul {
+  margin: 10px 0 14px 18px;
+}
+.notice-body li { margin-bottom: 7px; }
+.notice-disclaimer {
+  color: var(--text);
+  background: rgba(245,166,35,.09);
+  border: 1px solid rgba(245,166,35,.22);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.notice-actions {
+  padding: 0 18px 16px;
+  display: flex; justify-content: flex-end;
+}
+.btn-ok {
+  min-width: 96px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 40px; color: var(--text3); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+/* DIVIDER */
+.section-divider {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--text3);
+  display: flex; align-items: center; gap: 10px; margin: 20px 0 12px;
+}
+.section-divider::before, .section-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="header-title">
+      <span class="mine-icon">⏳</span>
+      <div>
+        <h1>OT TURN VIEWER</h1>
+        <div class="subtitle">Mining 11C</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" onclick="refreshData()" id="btnRefresh">🔄 Refresh</button>
+      <span class="author-mark">🖋️ Vikrant Vishal</span>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="status-bar-inner">
+    <div>
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Initializing…</span>
+    </div>
+    <div id="lastRefresh" style="color:var(--text3)"></div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Selection Panel -->
+  <div class="selection-panel">
+    <div class="panel-title">Select OT Parameters</div>
+    <div class="sel-grid">
+      <div class="sel-group">
+        <label>OT call for Date</label>
+        <input type="date" id="selDate" />
+      </div>
+      <div class="sel-group">
+        <label>OT call for Shift</label>
+        <select id="selShift">
+          <option value="1">1st Shift</option>
+          <option value="2">2nd Shift</option>
+          <option value="N">Night Shift</option>
+        </select>
+      </div>
+      <div class="sel-group group-sel">
+        <label>Group</label>
+        <select id="selGroup">
+          <option value="">— Select Group —</option>
+          <option value="Shovel">Shovel</option>
+          <option value="Dumper">Dumper</option>
+          <option value="Drill">Drill</option>
+          <option value="Dozer">Dozer</option>
+          <option value="Driver">Driver</option>
+          <option value="RS-04">RS-04</option>
+          <option value="Helper">Helper</option>
+          <option value="Welder">Welder</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-generate" id="btnGenerate" onclick="generateOT()" disabled>
+      Generate OT Turn
+    </button>
+  </div>
+
+  <div id="alerts"></div>
+  <div id="loadingPanel" class="loading" style="display:none">
+    <div class="spinner"></div>
+    <div id="loadingMsg">Loading data…</div>
+  </div>
+  <div id="results"></div>
+</div>
+
+<div class="modal-overlay" id="otNoticeModal" role="dialog" aria-modal="true" aria-labelledby="otNoticeTitle">
+  <div class="notice-modal">
+    <div class="notice-head">
+      <div class="notice-icon">⚠️</div>
+      <div class="notice-title" id="otNoticeTitle">Before Viewing the OT Turn</div>
+    </div>
+    <div class="notice-body">
+      <ul>
+        <li>Refresh the webpage to ensure the latest data is loaded.</li>
+        <li style="color: rgb(249, 45, 45) !important;">Verify that the OT REGISTER records in the Shift Office desktop Excel file are up to date.</li>
+        <li style="color: rgb(249, 45, 45) !important;">Confirm that the employee was present in their previous normal duty shift.</li>
+        <li>Check whether the employee is attending a meeting, PME, training, or is on any official tour.</li>
+      </ul>
+      <div class="notice-disclaimer">
+        😎 Disclaimer: This webpage is still in the Beta Stage. While every effort has been made to ensure accuracy, please reconfirm the displayed OT turn with the original records before making any OT call.
+      </div>
+    </div>
+    <div class="notice-actions">
+      <button class="btn-ok" onclick="confirmOtNotice()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let dutyData = null;       // Map<empId, Map<dateStr, shiftCode>>
+let otData = null;         // Map<empId, [dateStr, ...] sorted desc>
+let otDataByName = null;   // Map<normalizedName, [dateStr, ...]>
+let otCells = null;        // Map<empId, Map<dateStr, raw cell text>>
+let otCellsByName = null;  // Map<normalizedName, Map<dateStr, raw cell text>>
+let empMeta = null;        // Map<empId, {name, group}>
+let empPhones = null;      // Map<empId|normalizedName, {phone1, phone2}>
+let autoRefreshTimer = null;
+
+const DUTY_URL = 'https://dl.dropboxusercontent.com/scl/fi/ptpv93vsf2p99zuhz5ygh/DUTY-CHART.xlsx?rlkey=lwbwu01l3837c7191fqp992ks&st=o622q3w3&dl=1';
+const OT_URL   = 'https://dl.dropboxusercontent.com/scl/fi/hr5rpt9pn0u5hbter8wio/OT-REGISTER-WEF-JAN-26.xlsm?rlkey=42i2zdhgld8edyy7kdc9i95wp&st=3wfd96xd&dl=1';
+
+const GROUPS = ['Shovel','Dumper','Drill','Dozer','Driver','RS-04','Helper','Welder'];
+const SHIFT_LABEL = {'1':'1st Shift','2':'2nd Shift','N':'Night Shift','R':'Rest','GEN':'General'};
+const SHIFT_CLASS = {'1':'shift-1','2':'shift-2','N':'shift-n','R':'shift-r','GEN':'shift-x'};
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  setDefaultSelections();
+  document.getElementById('selGroup').addEventListener('change', checkReady);
+  document.getElementById('selDate').addEventListener('change', () => {
+    // iOS Safari ignores min/max on date inputs — enforce range in JS.
+    const dateInput = document.getElementById('selDate');
+    const now2 = new Date();
+    const todayStr2 = toDateStr(now2);
+    const tomorrowStr2 = addDays(todayStr2, 1);
+    if (dateInput.value < todayStr2) dateInput.value = todayStr2;
+    else if (dateInput.value > tomorrowStr2) dateInput.value = tomorrowStr2;
+    updateSelectedDateDisplay();
+    applyShiftRestrictions();
+    checkReady();
+  });
+  document.getElementById('selShift').addEventListener('change', checkReady);
+  await refreshData();
+});
+
+function setDefaultSelections() {
+  const now = new Date();
+  const todayStr = toDateStr(now);
+  const tomorrowStr = addDays(todayStr, 1);
+  const dateInput = document.getElementById('selDate');
+  dateInput.value = todayStr;
+  dateInput.min = todayStr;
+  dateInput.max = tomorrowStr;
+  applyShiftRestrictions();
+  updateSelectedDateDisplay();
+}
+
+function applyShiftRestrictions() {
+  const now = new Date();
+  const todayStr = toDateStr(now);
+  const selectedDate = document.getElementById('selDate').value;
+  const shiftSel = document.getElementById('selShift');
+  const opt1 = shiftSel.querySelector('option[value="1"]');
+  const opt2 = shiftSel.querySelector('option[value="2"]');
+  const optN = shiftSel.querySelector('option[value="N"]');
+
+  // Reset all options to enabled
+  opt1.disabled = false;
+  opt2.disabled = false;
+  optN.disabled = false;
+
+  // Apply time-based restrictions only when Today is selected
+  if (selectedDate === todayStr) {
+    const totalMins = now.getHours() * 60 + now.getMinutes();
+    const t1330 = 13 * 60 + 30;  // 1:30 PM
+    const t2130 = 21 * 60 + 30;  // 9:30 PM
+
+    if (totalMins >= t2130) {
+      // After 9:30 PM — only Night Shift available
+      opt1.disabled = true;
+      opt2.disabled = true;
+      if (shiftSel.value === '1' || shiftSel.value === '2') shiftSel.value = 'N';
+    } else if (totalMins >= t1330) {
+      // After 1:30 PM — 1st Shift disabled
+      opt1.disabled = true;
+      if (shiftSel.value === '1') shiftSel.value = '2';
+    }
+    // Before 1:30 PM — all enabled, no change needed
+  }
+  // Tomorrow selected — all shifts enabled, no restrictions
+}
+
+function checkReady() {
+  const ready = dutyData && otData && document.getElementById('selGroup').value;
+  document.getElementById('btnGenerate').disabled = !ready;
+}
+
+// ─── DATE UTILS ──────────────────────────────────────────────────────────────
+function toDateStr(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return toDateStr(d);
+}
+function formatDisplayDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'});
+}
+function formatParameterDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return '';
+  const weekdays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${d.getFullYear()}(${weekdays[d.getDay()]})`;
+}
+function updateSelectedDateDisplay() {
+  const display = document.getElementById('selDateDisplay');
+  if (!display) return;
+  display.textContent = formatParameterDate(document.getElementById('selDate').value);
+}
+function excelDateToStr(serial) {
+  // Excel serial date → YYYY-MM-DD
+  if (!serial) return null;
+  if (typeof serial === 'string') {
+    // try to parse if already string like "19-Jun-2026" or "2026-06-19"
+    const d = new Date(serial);
+    if (!isNaN(d)) return toDateStr(d);
+    return null;
+  }
+  if (typeof serial === 'number') {
+    const utcMs = Math.round((serial - 25569) * 86400 * 1000);
+    const d = new Date(utcMs);
+    return toDateStr(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  }
+  return null;
+}
+function normalizeDate(val) {
+  if (!val) return null;
+  if (typeof val === 'number') return excelDateToStr(val);
+  if (val instanceof Date) return toDateStr(val);
+  const s = String(val).trim();
+
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (dmy) {
+    let day = Number(dmy[1]);
+    let month = Number(dmy[2]);
+    let year = Number(dmy[3]);
+    if (year < 100) year += year < 70 ? 2000 : 1900;
+    const dt = new Date(year, month - 1, day);
+    if (!isNaN(dt)) return toDateStr(dt);
+  }
+
+  const d = new Date(s);
+  if (!isNaN(d)) return toDateStr(d);
+  return null;
+}
+
+// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+async function refreshData() {
+  setStatus('loading', 'Downloading data…');
+  showLoading('Downloading Duty Chart & OT Register…');
+  clearAlerts();
+
+  let dutyOk = false, otOk = false;
+
+  try {
+    const dutyBuf = await fetchFile(DUTY_URL);
+    parseDutyChart(dutyBuf);
+    dutyOk = true;
+  } catch(e) {
+    console.error('Duty chart error:', e);
+    addAlert('warn', '⚠️ Could not download Duty Chart — ' + (e.message||'network error') +
+      '. Check your internet connection and try Refresh. Using cached data if available.');
+    loadCache('duty');
+  }
+
+  try {
+    setLoadingMsg('Downloading OT Register…');
+    const otBuf = await fetchFile(OT_URL);
+    parseOTRegister(otBuf);
+    otOk = true;
+  } catch(e) {
+    console.error('OT register error:', e);
+    addAlert('warn', '⚠️ Could not download OT Register — ' + (e.message||'network error') +
+      '. Check your internet connection and try Refresh. Using cached data if available.');
+    loadCache('ot');
+  }
+
+  hideLoading();
+
+  if (dutyOk && otOk) {
+    setStatus('ok', `Data loaded — ${countEmps()} employees`);
+    saveCache();
+  } else if (dutyData && otData) {
+    setStatus('warn', 'Using cached data (download failed)');
+  } else {
+    setStatus('err', 'No data available');
+  }
+
+  document.getElementById('lastRefresh').textContent =
+    '↻ ' + new Date().toLocaleTimeString('en-IN');
+
+  checkReady();
+}
+
+async function fetchFile(url) {
+  // Build list of strategies to try in order
+  const strategies = [
+    // 1. Direct fetch with cache bypass
+    () => fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit',
+      redirect: 'follow',
+    }),
+    // 2. Direct fetch without explicit mode (lets browser decide)
+    () => fetch(url, {
+      method: 'GET',
+      cache: 'no-store',
+      redirect: 'follow',
+    }),
+    // 3. Proxy via allorigins (works on mobile when direct CORS is blocked)
+    () => fetch(
+      'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+      { method: 'GET', cache: 'no-store' }
+    ),
+    // 4. Proxy via corsproxy.io
+    () => fetch(
+      'https://corsproxy.io/?' + encodeURIComponent(url),
+      { method: 'GET', cache: 'no-store' }
+    ),
+  ];
+
+  let lastErr = null;
+  for (const attempt of strategies) {
+    try {
+      const res = await attempt();
+      if (!res.ok) { lastErr = new Error(`HTTP ${res.status}`); continue; }
+      const ab = await res.arrayBuffer();
+      if (ab.byteLength < 100) { lastErr = new Error('Empty response'); continue; }
+      return ab;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('All download strategies failed');
+}
+
+function parseDutyChart(buf) {
+  const wb = XLSX.read(buf, {type:'array', cellDates:true});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const matrix = XLSX.utils.sheet_to_json(ws, {defval:'', header:1});
+
+  dutyData = new Map();
+  empMeta  = new Map();
+
+  if (!matrix.length) return;
+
+  let headerRow = matrix[0];
+  let headerIndex = 0;
+  let empIdCol = -1;
+  let nameCol = -1;
+  let groupCol = 0;
+  let dateCols = [];
+
+  // Find header row with EMPID/NAME and date columns
+  for (let r = 0; r < Math.min(4, matrix.length); r++) {
+    const row = matrix[r];
+    if (!row) continue;
+    const ids = row.map(String);
+    const hasEmpId = ids.some(v => /EMP\s*ID|EMPID|ID/i.test(v));
+    const hasName = ids.some(v => /EMPLOYEE NAME|NAME|EMP NAME/i.test(v));
+    const dates = row.slice(4).filter(v => normalizeDate(v));
+    if ((hasEmpId || hasName) && dates.length >= 3) {
+      headerRow = row;
+      headerIndex = r;
+      empIdCol = ids.findIndex(v => /EMP\s*ID|EMPID|ID/i.test(v));
+      nameCol = ids.findIndex(v => /EMPLOYEE NAME|NAME|EMP NAME/i.test(v));
+      break;
+    }
+  }
+
+  if (empIdCol === -1) empIdCol = 2;
+  if (nameCol === -1) nameCol = 3;
+
+  // Collect date column indexes from header row
+  dateCols = headerRow.map((cell, idx) => ({cell, idx}))
+    .slice(nameCol + 1)
+    .map(({cell, idx}) => ({date: normalizeDate(cell), idx}))
+    .filter(x => x.date);
+
+  if (dateCols.length === 0) {
+    // fallback to row-object parsing
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+    parseDutyRows(rows);
+    return;
+  }
+
+  for (let r = headerIndex + 1; r < matrix.length; r++) {
+    const row = matrix[r];
+    if (!row || row.length === 0) continue;
+    const empId = String(row[empIdCol] || '').trim();
+    if (!empId) continue;
+
+    const group = normalizeGroup(row[groupCol] || '');
+    const name = String(row[nameCol] || '').trim();
+
+    for (const {idx, date} of dateCols) {
+      const shiftRaw = row[idx];
+      const shiftCode = normalizeShift(shiftRaw);
+      if (!shiftCode) continue;
+      if (!dutyData.has(empId)) dutyData.set(empId, new Map());
+      dutyData.get(empId).set(date, shiftCode);
+    }
+
+    const existingMeta = empMeta.get(empId);
+    if (!existingMeta) {
+      empMeta.set(empId, {name, group});
+    } else {
+      if (!existingMeta.name && name) existingMeta.name = name;
+      if (!existingMeta.group && group) existingMeta.group = group;
+      empMeta.set(empId, existingMeta);
+    }
+  }
+}
+
+function parseDutyRows(rows) {
+  dutyData = new Map();
+  empMeta  = new Map();
+
+  for (const row of rows) {
+    const empIdRaw = row['Employee ID'] || row['EMP ID'] || row['Emp ID'] || row['EmpID'] || row['ID'] || '';
+    const empNameRaw = row['Employee Name'] || row['Name'] || row['Emp Name'] || '';
+    const groupRaw = row['Group'] || row['GROUP'] || '';
+    const dateVal = row['Date'] || row['DATE'] || row['date'];
+    const shiftRaw = row['Shift'] || row['SHIFT'] || row['shift'] || '';
+
+    const empId   = String(empIdRaw).trim();
+    const empName = String(empNameRaw).trim();
+    const group   = normalizeGroup(groupRaw);
+    const shift   = String(shiftRaw).trim();
+
+    if (!empId || !dateVal) continue;
+
+    const dateStr = normalizeDate(dateVal);
+    if (!dateStr) continue;
+
+    const shiftCode = normalizeShift(shift);
+
+    if (!dutyData.has(empId)) dutyData.set(empId, new Map());
+    dutyData.get(empId).set(dateStr, shiftCode);
+
+    const existingMeta = empMeta.get(empId);
+    if (!existingMeta) {
+      empMeta.set(empId, {name: empName, group: group});
+    } else {
+      if (!existingMeta.name && empName) existingMeta.name = empName;
+      if (!existingMeta.group && group) existingMeta.group = group;
+      empMeta.set(empId, existingMeta);
+    }
+  }
+}
+
+function normalizeShift(s) {
+  const u = String(s || '').toUpperCase().trim();
+  if (u.includes('1ST') || u === '1' || u === 'I') return '1';
+  if (u.includes('2ND') || u === '2' || u === 'II') return '2';
+  if (u.includes('NIGHT') || u === 'N' || u.includes('3RD')) return 'N';
+  if (u.includes('REST') || u === 'R') return 'R';
+  if (u.includes('GEN')) return 'GEN';
+  return u || 'R';
+}
+
+function normalizeGroup(g) {
+  if (!g) return '';
+  return String(g)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*[-_]\s*/g, '-')
+    .toUpperCase();
+}
+
+function normalizeKey(value) {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+}
+
+function hasCellValue(cell) {
+  return cell !== undefined && cell !== null && String(cell).trim() !== '';
+}
+
+function findOTPersonColumns(headerRow, firstDateCol) {
+  const searchLimit = Math.max(0, firstDateCol);
+  let idCol = -1;
+  let nameCol = -1;
+
+  for (let c = 0; c < searchLimit; c++) {
+    const label = normalizeGroup(headerRow[c] || '');
+    if (idCol === -1 && /EMP\s*ID|EMPID|E\.?\s*NO/.test(label)) idCol = c;
+    if (nameCol === -1 && /NAME/.test(label) && !/EMP\s*ID|EMPID/.test(label)) nameCol = c;
+  }
+
+  if (nameCol === -1) nameCol = firstDateCol > 1 ? 1 : 0;
+  if (idCol === -1) idCol = firstDateCol > 2 ? 2 : -1;
+  return {idCol, nameCol};
+}
+
+function normalizeHistoryDates(dates) {
+  return (dates || [])
+    .map(normalizeDate)
+    .filter(Boolean)
+    .sort()
+    .reverse();
+}
+
+function getEmployeeOTDates(empId, empName) {
+  const idDates = otData && otData.get(normalizeKey(empId));
+  if (idDates && idDates.length) return idDates.slice();
+
+  if (empName && otDataByName) {
+    const nameDates = otDataByName.get(normalizeGroup(empName));
+    if (nameDates && nameDates.length) return nameDates.slice();
+  }
+  return [];
+}
+
+function getEmployeeOTCell(empId, empName, dateStr) {
+  const dateKey = normalizeDate(dateStr);
+  if (!dateKey) return '';
+
+  const idCells = otCells && otCells.get(normalizeKey(empId));
+  if (idCells && idCells.has(dateKey)) return idCells.get(dateKey);
+
+  if (empName && otCellsByName) {
+    const nameCells = otCellsByName.get(normalizeGroup(empName));
+    if (nameCells && nameCells.has(dateKey)) return nameCells.get(dateKey);
+  }
+  return '';
+}
+
+function getEmployeePhones(empId, empName) {
+  if (empPhones) {
+    if (empId && empPhones.has(empId)) return empPhones.get(empId);
+    const normName = normalizeGroup(empName || '');
+    if (normName && empPhones.has(normName)) return empPhones.get(normName);
+  }
+  return {phone1: '', phone2: ''};
+}
+
+function hasPreviousNightOT(empId, empName, dateStr) {
+  const prevOtCell = getEmployeeOTCell(empId, empName, addDays(dateStr, -1));
+  return /N\s*-/i.test(String(prevOtCell || ''));
+}
+
+/**
+ * Returns the set of shifts an employee is already engaged in on a given date,
+ * counting both normal duty AND OT entries from the OT register.
+ *
+ * OT cell values are expected to contain shift identifiers like:
+ *   "1-OT", "2-OT", "N-OT", "1 OT", "2 OT", "N OT", "1ST OT", "NIGHT OT", etc.
+ *
+ * Returns a Set of shift codes (e.g. {'1', '2', 'N'}) — at most 3 elements.
+ */
+function getEngagedShiftsOnDate(empId, empName, dateStr) {
+  const engaged = new Set();
+
+  // 1. Normal duty shift from duty chart
+  const dutyMap = dutyData ? dutyData.get(empId) : null;
+  const normalShift = dutyMap ? dutyMap.get(dateStr) : null;
+  if (normalShift && normalShift !== 'R' && normalShift !== 'GEN') {
+    engaged.add(normalShift);
+  }
+
+  // 2. OT shift(s) from OT register cell text for this date
+  const cellText = getEmployeeOTCell(empId, empName, dateStr);
+  if (hasCellValue(cellText)) {
+    const txt = String(cellText).toUpperCase();
+    // Detect which shift the OT was for based on cell content
+    if (/\b(1ST|1\s*-|1\s+OT)\b|^1/.test(txt))  engaged.add('1');
+    if (/\b(2ND|2\s*-|2\s+OT)\b|^2/.test(txt))  engaged.add('2');
+    if (/\b(NIGHT|NITE|N\s*-|N\s+OT)\b|^N/.test(txt)) engaged.add('N');
+    // If cell has value but shift code is ambiguous, mark it as an unknown engagement
+    // by counting it only if no shift was already detected
+    if (engaged.size === (normalShift && normalShift !== 'R' && normalShift !== 'GEN' ? 1 : 0)) {
+      // Cell has a value but no clear shift pattern — treat as one extra engagement
+      engaged.add('_OT_UNKNOWN');
+    }
+    // Handle "&" — two OT shifts on same day (already duplicated in otDates but cell text
+    // typically looks like "2-OT & N-OT")
+    // The regex matches above will already pick up both shifts if the text has them.
+  }
+
+  return engaged;
+}
+
+/**
+ * Returns true if the employee is already engaged in 2 or more shifts on dateStr,
+ * meaning they must be excluded from OT in the third shift.
+ */
+function alreadyInTwoShifts(empId, empName, dateStr) {
+  return getEngagedShiftsOnDate(empId, empName, dateStr).size >= 2;
+}
+
+function parseOTRegister(buf) {
+  const wb = XLSX.read(buf, {type:'array', cellDates:false});
+  otData = new Map();
+  otDataByName = new Map();
+  otCells = new Map();
+  otCellsByName = new Map();
+  empPhones = new Map();
+
+  for (const sheetName of wb.SheetNames) {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) continue;
+
+    const rows = XLSX.utils.sheet_to_json(ws, {defval:'', header:1});
+    if (!rows.length) continue;
+
+    // Find the row with the daily date headers. Month title rows can also look
+    // date-like (for example "Jan-26"), so use the strongest candidate row.
+    let headerRow = null;
+    let headerIndex = 0;
+    let dateHeaders = [];
+    for (let r = 0; r < Math.min(10, rows.length); r++) {
+      const row = rows[r];
+      if (!row) continue;
+      const candidates = [];
+      for (let c = 1; c < row.length; c++) {
+        const ds = normalizeDate(row[c]);
+        if (ds) candidates.push({col: c, date: ds});
+      }
+      if (candidates.length > dateHeaders.length) {
+        headerRow = row;
+        headerIndex = r;
+        dateHeaders = candidates;
+      }
+    }
+
+    if (!headerRow || dateHeaders.length < 3) continue;
+    const firstDateCol = Math.min(...dateHeaders.map(h => h.col));
+    const {idCol, nameCol} = findOTPersonColumns(headerRow, firstDateCol);
+
+    for (let r = headerIndex + 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || row.length === 0) continue;
+
+      const rawId = idCol >= 0 ? normalizeKey(row[idCol]) : '';
+      const rawName = nameCol >= 0 ? normalizeKey(row[nameCol]) : '';
+      const keyId = rawId || rawName;
+      if (!keyId) continue;
+
+      // Extract phone numbers from columns 4 & 5 (index 3 and 4)
+      const phone1 = String(row[3] || '').trim();
+      const phone2 = String(row[4] || '').trim();
+      if (phone1 || phone2) {
+        const phoneKey = rawId || normalizeGroup(rawName);
+        if (phoneKey && !empPhones.has(phoneKey)) {
+          empPhones.set(phoneKey, {phone1, phone2});
+        }
+      }
+
+      const otDates = [];
+      for (const {col, date} of dateHeaders) {
+        const cell = row[col];
+        if (hasCellValue(cell)) {
+          const cellText = String(cell).trim();
+          if (rawId) {
+            if (!otCells.has(rawId)) otCells.set(rawId, new Map());
+            otCells.get(rawId).set(date, cellText);
+          }
+          if (rawName) {
+            const normalizedName = normalizeGroup(rawName);
+            if (!otCellsByName.has(normalizedName)) otCellsByName.set(normalizedName, new Map());
+            otCellsByName.get(normalizedName).set(date, cellText);
+          }
+          otDates.push(date);
+          if (cellText.includes('&')) otDates.push(date);
+        }
+      }
+      if (!otDates.length) continue;
+
+      if (rawId) {
+        if (!otData.has(rawId)) otData.set(rawId, []);
+        otData.get(rawId).push(...otDates);
+      }
+      if (rawName) {
+        const normalizedName = normalizeGroup(rawName);
+        if (!otDataByName.has(normalizedName)) otDataByName.set(normalizedName, []);
+        otDataByName.get(normalizedName).push(...otDates);
+      }
+    }
+  }
+
+  for (const [id, dates] of otData) {
+    otData.set(id, normalizeHistoryDates(dates));
+  }
+  for (const [name, dates] of otDataByName) {
+    otDataByName.set(name, normalizeHistoryDates(dates));
+  }
+}
+
+function countEmps() {
+  return empMeta ? empMeta.size : 0;
+}
+
+// ─── CACHE ────────────────────────────────────────────────────────────────────
+function saveCache() {
+  try {
+    const meta = JSON.stringify([...empMeta.entries()]);
+    const duty = JSON.stringify([...dutyData.entries()].map(([k,v])=>[k,[...v.entries()]]));
+    const ot   = JSON.stringify([...otData.entries()]);
+    const otName = JSON.stringify([...otDataByName.entries()]);
+    const otCellData = JSON.stringify([...otCells.entries()].map(([k,v])=>[k,[...v.entries()]]));
+    const otCellName = JSON.stringify([...otCellsByName.entries()].map(([k,v])=>[k,[...v.entries()]]));
+    localStorage.setItem('ot_meta', meta);
+    localStorage.setItem('ot_duty', duty);
+    localStorage.setItem('ot_ot',   ot);
+    localStorage.setItem('ot_by_name', otName);
+    localStorage.setItem('ot_cells', otCellData);
+    localStorage.setItem('ot_cells_by_name', otCellName);
+    localStorage.setItem('ot_ts',   Date.now());
+  } catch(e) {}
+}
+function loadCache(type) {
+  try {
+    if (type === 'duty' || type === 'all') {
+      const meta = localStorage.getItem('ot_meta');
+      const duty = localStorage.getItem('ot_duty');
+      if (meta && duty) {
+        empMeta  = new Map(JSON.parse(meta));
+        dutyData = new Map(JSON.parse(duty).map(([k,v])=>[k, new Map(v)]));
+      }
+    }
+    if (type === 'ot' || type === 'all') {
+      const ot = localStorage.getItem('ot_ot');
+      const otName = localStorage.getItem('ot_by_name');
+      const otCellData = localStorage.getItem('ot_cells');
+      const otCellName = localStorage.getItem('ot_cells_by_name');
+      if (ot) otData = new Map(JSON.parse(ot));
+      if (otName) {
+        otDataByName = new Map(JSON.parse(otName));
+      }
+      if (otCellData) {
+        otCells = new Map(JSON.parse(otCellData).map(([k,v])=>[k, new Map(v)]));
+      }
+      if (otCellName) {
+        otCellsByName = new Map(JSON.parse(otCellName).map(([k,v])=>[k, new Map(v)]));
+      }
+      if (!otCells) otCells = new Map();
+      if (!otCellsByName) otCellsByName = new Map();
+      if (!otDataByName) {
+        otDataByName = new Map();
+        if (otData && empMeta) {
+          for (const [id, meta] of empMeta) {
+            const normalizedName = normalizeGroup(meta.name);
+            if (normalizedName && otData.has(id)) {
+              otDataByName.set(normalizedName, otData.get(id).slice());
+            }
+          }
+        }
+      }
+    }
+  } catch(e) {}
+}
+
+// ─── AUTO REFRESH ─────────────────────────────────────────────────────────────
+function toggleAuto() {
+  const btn = document.getElementById('btnAuto');
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+    btn.classList.remove('auto-on');
+    btn.textContent = '⏱ Auto';
+  } else {
+    autoRefreshTimer = setInterval(refreshData, 5 * 60 * 1000);
+    btn.classList.add('auto-on');
+    btn.textContent = '⏱ Auto ON';
+  }
+}
+
+// ─── OT GENERATION ───────────────────────────────────────────────────────────
+function generateOT() {
+  document.getElementById('otNoticeModal').classList.add('show');
+}
+
+function confirmOtNotice() {
+  document.getElementById('otNoticeModal').classList.remove('show');
+  generateOTTurn();
+}
+
+function generateOTTurn() {
+  const dateStr  = String(document.getElementById('selDate').value || '').trim();
+  const shiftReq = String(document.getElementById('selShift').value || '').trim();
+  const group    = String(document.getElementById('selGroup').value || '').trim();
+  const res      = document.getElementById('results');
+
+  if (!dateStr || !shiftReq || !group) {
+    res.innerHTML = `<div class="alert alert-warn">Please select Date, Shift and Group before generating the OT turn.</div>`;
+    return;
+  }
+  if (!dutyData || !otData) {
+    res.innerHTML = `<div class="alert alert-err">Data is not ready yet. Please refresh and try again.</div>`;
+    return;
+  }
+
+  res.innerHTML = `<div class="loading"><div class="spinner"></div>Generating OT turn…</div>`;
+
+  try {
+    const prevDate = addDays(dateStr, -1);
+    const nextDate = addDays(dateStr, 1);
+
+    // Get all employees in this group
+    const targetGroup = normalizeGroup(group);
+    const groupEmps = [...empMeta.entries()].filter(([id, meta]) =>
+      normalizeGroup(meta.group) === targetGroup
+    ).map(([id]) => id);
+
+    if (groupEmps.length === 0) {
+      res.innerHTML = `
+        <div class="alert alert-warn">⚠️ No employees found in group: ${group}</div>
+      `;
+      return;
+    }
+
+    const eligible = [];
+    const ineligible = [];
+
+    for (const empId of groupEmps) {
+      const meta = empMeta.get(empId);
+      const dutyMap = dutyData.get(empId) || new Map();
+
+      const todayShift = dutyMap.get(dateStr) || null;
+      const prevShift  = dutyMap.get(prevDate) || null;
+      const nextShift  = dutyMap.get(nextDate) || null;
+
+      // Executive exclusion
+      if (normalizeGroup(meta.group) === 'EXECUTIVE') {
+        ineligible.push({id: empId, name: meta.name, reason: 'Executive Employee'});
+        continue;
+      }
+
+      // Eligibility checks by requested shift
+      let priority = null;
+      let reason = null;
+
+      // ── RULE 1 (HIGHEST PRIORITY): Normal duty in same shift = ineligible ────
+      // Must be checked first, before any other OT selection rule.
+      if (todayShift === shiftReq) {
+        reason = `On Normal Duty in ${SHIFT_LABEL[shiftReq]||shiftReq} — cannot perform OT in the same shift`;
+      }
+
+      // ── RULE: Max 2 shifts per day ───────────────────────────────────────────
+      // An employee already engaged in 2 shifts on this date (normal duty + OT
+      // in any combination) cannot be assigned OT in the third shift.
+      else if (alreadyInTwoShifts(empId, meta.name, dateStr)) {
+        reason = 'Already engaged in 2 shifts today — max 2 shifts per day reached';
+      } else if (shiftReq === '1' && hasPreviousNightOT(empId, meta.name, dateStr)) {
+        reason = 'Performed Night Shift OT previous day';
+      } else if (group === 'Drill') {
+        // Drill special: no shift priority. Same-shift exclusion already handled by Rule 1 above.
+        if (shiftReq === 'N') {
+          ineligible.push({id:empId, name:meta.name, reason:'Drill group has no Night Shift'});
+          continue;
+        }
+        priority = 1;
+      } else if (shiftReq === '1') {
+        if (prevShift === 'N') {
+          reason = 'Worked Night Shift previous day';
+        } else if (todayShift === '2') {
+          priority = 1;
+        } else if (todayShift === 'R' || !todayShift) {
+          priority = 2;
+        } else if (todayShift === 'N' && prevShift === 'R') {
+          // Special rule: Rest yesterday + Night Shift today → eligible for 1st Shift OT
+          priority = 2;
+        } else {
+          reason = `On ${SHIFT_LABEL[todayShift]||todayShift} — not eligible`;
+        }
+      } else if (shiftReq === '2') {
+        if (todayShift === '1') {
+          priority = 1;
+        } else if (todayShift === 'N') {
+          priority = 2;
+        } else if (todayShift === 'R' || !todayShift) {
+          priority = 3;
+        } else {
+          reason = `On ${SHIFT_LABEL[todayShift]||todayShift} — not eligible`;
+        }
+      } else if (shiftReq === 'N') {
+        if (nextShift === '1') {
+          reason = '1st Shift duty next day';
+        } else if (todayShift === '2' && hasCellValue(getEmployeeOTCell(empId, meta.name, dateStr))) {
+          reason = 'Already performed OT on same date';
+        } else if (todayShift === '2') {
+          priority = 1;
+        } else if (todayShift === 'R') {
+          priority = 2;
+        } else if (todayShift === '1') {
+          if (nextShift === 'R' || nextShift === '2') {
+            priority = 3;
+          } else {
+            reason = '1st Shift today requires Rest or 2nd Shift next day';
+          }
+        } else if (!todayShift) {
+          priority = 4;
+        } else {
+          reason = `On ${SHIFT_LABEL[todayShift]||todayShift} — not eligible`;
+        }
+      }
+
+      if (reason) {
+        ineligible.push({id: empId, name: meta.name, reason});
+      } else if (priority !== null) {
+        let empOtDates = getEmployeeOTDates(empId, meta.name);
+        eligible.push({
+          id: empId,
+          name: meta.name,
+          priority,
+          todayShift,
+          prevShift,
+          nextShift,
+          otDates: empOtDates,
+          latestOt: empOtDates.length ? empOtDates[0] : null
+        });
+      } else {
+        ineligible.push({id: empId, name: meta.name, reason: 'No Duty Information Found'});
+      }
+    }
+
+    eligible.sort((a, b) => {
+      if (group !== 'Drill') {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+      }
+      return compareOTHistory(a.otDates, b.otDates);
+    });
+
+    renderResults(eligible, ineligible, dateStr, shiftReq, group, prevDate, nextDate);
+  } catch (err) {
+    console.error('generateOT error:', err);
+    res.innerHTML = `<div class="alert alert-err">An error occurred while generating the report: ${err.message}</div>`;
+  }
+}
+
+function compareOTHistory(aDates, bDates) {
+  // Oldest OT history = higher priority
+  // Compare from most recent working backwards
+  const aDesc = [...aDates].sort().reverse(); // desc
+  const bDesc = [...bDates].sort().reverse();
+
+  // Employee with older latest OT goes first
+  const maxLen = Math.max(aDesc.length, bDesc.length);
+  for (let i = 0; i < maxLen; i++) {
+    const ad = aDesc[i] || '';
+    const bd = bDesc[i] || '';
+    if (ad < bd) return -1; // a older = a first
+    if (ad > bd) return 1;
+  }
+  // No OT at all = highest priority
+  if (aDesc.length === 0 && bDesc.length > 0) return -1;
+  if (bDesc.length === 0 && aDesc.length > 0) return 1;
+  return 0;
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderResults(eligible, ineligible, dateStr, shiftReq, group, prevDate, nextDate) {
+  const res = document.getElementById('results');
+
+  if (eligible.length === 0) {
+    res.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🚫</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:6px">No Eligible Employees</div>
+        <div style="color:var(--text3)">No employees from ${group} group are eligible for ${SHIFT_LABEL[shiftReq]} OT on ${formatDisplayDate(dateStr)}.</div>
+      </div>
+      ${renderIneligible(ineligible)}
+    `;
+    return;
+  }
+
+  // Group by priority (except Drill)
+  let html = `
+    <div class="results-header">
+      <div class="results-title">OT Turn — ${group} · ${SHIFT_LABEL[shiftReq]} · ${formatDisplayDate(dateStr)}</div>
+      <div style="font-size:13px;color:var(--text3)">${eligible.length} eligible</div>
+    </div>
+  `;
+
+  if (group === 'Drill') {
+    html += `<div class="alert alert-info">ℹ️ Drill group: all employees in one combined pool (no shift priority).</div>`;
+    html += renderEmpCards(eligible, 0);
+  } else {
+    const byPriority = {};
+    for (const e of eligible) {
+      if (!byPriority[e.priority]) byPriority[e.priority] = [];
+      byPriority[e.priority].push(e);
+    }
+    const pLabels = {
+      '1': {label:'Priority 1 — First Call', cls:'priority-p1'},
+      '2': {label:'Priority 2 — Second Call', cls:'priority-p2'},
+      '3': {label:'Priority 3 — Third Call', cls:'priority-p3'},
+    };
+    let turnNo = 1;
+    for (const p of Object.keys(byPriority).sort()) {
+      const {label, cls} = pLabels[p] || {label:`Priority ${p}`, cls:'priority-p1'};
+      html += `
+        <div class="priority-section">
+          <div class="priority-header ${cls}">🎯 ${label}</div>
+      `;
+      html += renderEmpCards(byPriority[p], turnNo - 1);
+      turnNo += byPriority[p].length;
+      html += `</div>`;
+    }
+  }
+
+  html += renderIneligible(ineligible);
+  res.innerHTML = html;
+}
+
+function renderEmpCards(emps, startTurn) {
+  let html = '';
+  emps.forEach((emp, i) => {
+    const turnIndex = startTurn + i;
+    const last4 = (emp.otDates || []).slice(0, 4);
+
+    const phones = getEmployeePhones(emp.id, emp.name);
+    const phone1 = phones.phone1;
+    const phone2 = phones.phone2;
+
+    let phoneHtml = '';
+    if (phone1 || phone2) {
+      const phoneNums = [phone1, phone2].filter(Boolean);
+      phoneHtml = phoneNums.map(p =>
+        `<a class="phone-display" href="tel:${p}">📞 ${p}</a>
+         <a class="btn-call" href="tel:${p}" title="Call ${p}">☎</a>`
+      ).join('');
+    } else {
+      phoneHtml = `<span class="phone-na">No phone number on record</span>`;
+    }
+
+    html += `
+      <div class="ot-card" id="card-${turnIndex}">
+        <div class="ot-card-header">
+          <div class="turn-no">${startTurn + i + 1}</div>
+          <div style="flex:1">
+            <div class="emp-name">${emp.name || 'Unknown'}</div>
+            <div class="emp-id">ID: ${emp.id}</div>
+          </div>
+          ${emp.priority ? `<span class="badge badge-p${emp.priority}">P${emp.priority}</span>` : ''}
+        </div>
+        <div class="ot-card-body">
+          <div class="info-cell">
+            <label>Today Shift</label>
+            <div class="val">
+              <span class="shift-badge ${SHIFT_CLASS[emp.todayShift]||'shift-x'}">
+                ${SHIFT_LABEL[emp.todayShift] || emp.todayShift || '—'}
+              </span>
+            </div>
+          </div>
+          <div class="info-cell">
+            <label>Yesterday</label>
+            <div class="val">
+              <span class="shift-badge ${SHIFT_CLASS[emp.prevShift]||'shift-x'}">
+                ${SHIFT_LABEL[emp.prevShift] || emp.prevShift || '—'}
+              </span>
+            </div>
+          </div>
+          <div class="info-cell">
+            <label>Tomorrow</label>
+            <div class="val">
+              <span class="shift-badge ${SHIFT_CLASS[emp.nextShift]||'shift-x'}">
+                ${SHIFT_LABEL[emp.nextShift] || emp.nextShift || '—'}
+              </span>
+            </div>
+          </div>
+          <div class="info-cell" style="grid-column:1/-1">
+            <label>Last 4 OT Dates</label>
+            <div class="ot-dates">
+              ${last4.length ? last4.map(d => formatDisplayDate(d)).join(' · ') : 'No OT history'}
+            </div>
+          </div>
+        </div>
+        <div class="ot-card-actions" id="actions-${turnIndex}">
+          ${phoneHtml}
+        </div>
+      </div>
+    `;
+  });
+  return html;
+}
+
+function renderIneligible(list) {
+  if (!list.length) return '';
+  return `
+    <div class="section-divider">Not Eligible</div>
+    <div class="table-wrap">
+      <div class="table-section-title">⛔ Ineligible Employees (${list.length})</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Emp ID</th>
+            <th>Name</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map(e => `
+            <tr>
+              <td style="font-variant-numeric:tabular-nums;color:var(--text3)">${e.id}</td>
+              <td>${e.name}</td>
+              <td style="color:var(--red)">${e.reason}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+function setStatus(type, text) {
+  const dot  = document.getElementById('statusDot');
+  const span = document.getElementById('statusText');
+  dot.className  = `status-dot ${type}`;
+  // Strip trailing ellipsis — CSS animation re-adds it for loading state
+  const cleanText = (type === 'loading') ? text.replace(/[.…]+$/, '') : text;
+  span.textContent = cleanText;
+  span.className = (type === 'loading') ? 'downloading' : '';
+}
+
+function showLoading(msg) {
+  document.getElementById('loadingPanel').style.display = 'block';
+  document.getElementById('results').innerHTML = '';
+  setLoadingMsg(msg);
+}
+function hideLoading() {
+  document.getElementById('loadingPanel').style.display = 'none';
+}
+function setLoadingMsg(msg) {
+  document.getElementById('loadingMsg').textContent = msg;
+}
+
+
+function addAlert(type, msg) {
+  const div = document.createElement('div');
+  div.className = `alert alert-${type}`;
+  div.textContent = msg;
+  document.getElementById('alerts').appendChild(div);
+}
+function clearAlerts() {
+  document.getElementById('alerts').innerHTML = '';
+}
+</script>
+</body>
+</html>
