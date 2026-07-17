@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mining Deposit-11C | Manpower Management</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Noto+Sans:wght@300;400;600&display=swap');
+
+  :root {
+    --coal: #0d0f14;
+    --deep: #121620;
+    --panel: #181e2a;
+    --card: #1e2535;
+    --border: #2a3348;
+    --amber: #f59e0b;
+    --amber-dim: #92600a;
+    --amber-glow: rgba(245,158,11,0.15);
+    --ore: #e84545;
+    --green: #22c55e;
+    --blue: #3b82f6;
+    --night: #a855f7;
+    --text: #cbd5e1;
+    --muted: #64748b;
+    --bright: #f1f5f9;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--coal);
+    color: var(--text);
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ─── HEADER (identical to source) ─── */
+  .header {
+    background: linear-gradient(135deg, #0a0e18 0%, #151d2e 60%, #1a0505 100%);
+    border-bottom: 2px solid var(--amber);
+    padding: 12px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .logo-block { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 44px; height: 40px;
+    font-size: 32px;
+    background: var(--card);
+    border: 1.5px solid var(--amber);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .logo-text { line-height: 1.1; }
+  .logo-text .org {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--amber);
+    letter-spacing: 1px;
+  }
+  .logo-text .unit {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+  .header-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--bright);
+    margin-left: auto;
+    text-align: right;
+  }
+  .header-title span {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 400;
+    font-family: 'Noto Sans', sans-serif;
+  }
+
+  /* ─── MAIN CONTENT ─── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px 48px;
+  }
+
+  /* ─── WELCOME SECTION ─── */
+  .welcome {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .welcome-eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+  .welcome-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: clamp(26px, 6vw, 36px);
+    color: var(--bright);
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .welcome-sub {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 320px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ─── DIVIDER ─── */
+  .divider {
+    width: 48px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber), transparent);
+    margin: 0 auto 40px;
+    border-radius: 2px;
+  }
+
+  /* ─── BUTTON GRID ─── */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  @media (min-width: 520px) {
+    .btn-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (min-width: 760px) {
+    .btn-grid {
+      grid-template-columns: 1fr 1fr 1fr;
+      max-width: 680px;
+    }
+  }
+
+  /* ─── NAV CARDS ─── */
+  .nav-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 32px 20px 28px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    text-decoration: none;
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 180px;
+  }
+
+  /* Subtle animated top bar */
+  .nav-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 16px 16px 0 0;
+    transition: opacity 0.2s;
+    opacity: 0.6;
+  }
+
+  /* Glow overlay on hover */
+  .nav-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .nav-card:hover,
+  .nav-card:focus-visible {
+    transform: translateY(-3px);
+    outline: none;
+  }
+
+  .nav-card:active {
+    transform: translateY(0);
+  }
+
+  /* ── Card 1: Duty Roster ── */
+  .card-roster::before {
+    background: linear-gradient(90deg, var(--amber), #fbbf24);
+  }
+  .card-roster:hover {
+    border-color: var(--amber-dim);
+    box-shadow: 0 8px 32px rgba(245,158,11,0.18), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .card-roster::after {
+    background: radial-gradient(ellipse at 50% 0%, var(--amber-glow), transparent 70%);
+  }
+  .card-roster:hover::after,
+  .card-roster:focus-visible::after { opacity: 1; }
+
+  /* ── Card 2: OT Turn Viewer ── */
+  .card-ot::before {
+    background: linear-gradient(90deg, var(--blue), #60a5fa);
+  }
+  .card-ot:hover {
+    border-color: rgba(59,130,246,0.4);
+    box-shadow: 0 8px 32px rgba(59,130,246,0.18), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .card-ot::after {
+    background: radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.12), transparent 70%);
+  }
+  .card-ot:hover::after,
+  .card-ot:focus-visible::after { opacity: 1; }
+
+  /* ── Card 3: Attendance Management ── */
+  .card-attendance::before {
+    background: linear-gradient(90deg, var(--green), #4ade80);
+  }
+  .card-attendance:hover {
+    border-color: rgba(34,197,94,0.4);
+    box-shadow: 0 8px 32px rgba(34,197,94,0.18), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .card-attendance::after {
+    background: radial-gradient(ellipse at 50% 0%, rgba(34,197,94,0.12), transparent 70%);
+  }
+  .card-attendance:hover::after,
+  .card-attendance:focus-visible::after { opacity: 1; }
+  .card-attendance .card-icon {
+    background: rgba(34,197,94,0.12);
+    border: 1px solid rgba(34,197,94,0.25);
+  }
+  .card-attendance .card-arrow { color: var(--green); }
+
+  /* ─── CARD ICON ─── */
+  .card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .card-roster .card-icon {
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.25);
+  }
+  .card-ot .card-icon {
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(59,130,246,0.25);
+  }
+
+  /* ─── CARD TEXT ─── */
+  .card-body {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .card-label {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    color: var(--bright);
+  }
+  .card-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Arrow indicator */
+  .card-arrow {
+    position: absolute;
+    bottom: 14px;
+    right: 16px;
+    font-size: 14px;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.18s, transform 0.18s;
+    z-index: 1;
+  }
+  .card-roster .card-arrow { color: var(--amber); }
+  .card-ot .card-arrow { color: var(--blue); }
+  .nav-card:hover .card-arrow,
+  .nav-card:focus-visible .card-arrow {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* ─── FOOTER ─── */
+  .footer {
+    padding: 16px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+    border-top: 1px solid var(--border);
+    opacity: 0.7;
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── HEADER ─── -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo-block">
+      <div class="logo-icon">
+        👷
+      </div>
+      <div class="logo-text">
+        <div class="org">MINING 11C</div>
+      </div>
+    </div>
+    <div class="header-title">
+      🖋️ Vikrant Vishal
+      <span id="liveClock">—</span>
+    </div>
+  </div>
+</header>
+
+<!-- ─── MAIN ─── -->
+<main class="main">
+
+  <div class="welcome">
+    <div class="welcome-eyebrow">Deposit 11C</div>
+    <div class="welcome-title">Mine Operations<br>Management</div>
+    <div class="welcome-sub">Select a module to view duty schedules or manage overtime turns.</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="btn-grid">
+
+    <!-- Duty Roster -->
+    <a class="nav-card card-roster" href="duty-roster.html" role="button" aria-label="Open Duty Roster">
+      <div class="card-icon">📋</div>
+      <div class="card-body">
+        <div class="card-label">Duty Roster</div>
+        <div class="card-desc">View shift assignments &amp; group duty charts</div>
+      </div>
+      <span class="card-arrow">→</span>
+    </a>
+
+    <!-- OT Turn Viewer -->
+    <a class="nav-card card-ot" href="ot-turn-viewer.html" role="button" aria-label="Open OT Turn Viewer">
+      <div class="card-icon">🔄</div>
+      <div class="card-body">
+        <div class="card-label">OT Turn Viewer</div>
+        <div class="card-desc">Track overtime turn status &amp; overtime eligibility</div>
+      </div>
+      <span class="card-arrow">→</span>
+    </a>
+
+    <!-- Attendance Management -->
+    <a class="nav-card card-attendance" href="main-menu.html" role="button" aria-label="Open Attendance Management">
+      <div class="card-icon">🗓️</div>
+      <div class="card-body">
+        <div class="card-label">Attendance Management</div>
+        <div class="card-desc">Mark attendance, view reports &amp; manage leave/tour</div>
+      </div>
+      <span class="card-arrow">→</span>
+    </a>
+
+  </div>
+
+</main>
+
+<!-- ─── FOOTER ─── -->
+<footer class="footer">
+  🌼 Big Innovations Begin with Small Improvements. 🌼
+</footer>
+
+<script>
+  function updateClock() {
+    const now = new Date();
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const day = days[now.getDay()];
+    const date = now.getDate();
+    const month = months[now.getMonth()];
+    const year = now.getFullYear();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const ss = String(now.getSeconds()).padStart(2,'0');
+    document.getElementById('liveClock').textContent =
+      `${day}, ${date} ${month} ${year} · ${hh}:${mm}:${ss}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+</script>
+</body>
+</html>

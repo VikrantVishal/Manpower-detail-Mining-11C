@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Leave / Tour / PME — Deposit-11C</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&family=Noto+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-top">
+    <div class="titles">
+      <h1>LEAVE INFORMATION</h1>
+      <div class="sub">Mark employee's leave/unavailability</div>
+    </div>
+  </div>
+  <div class="header-bottom">
+    <a class="back-btn" href="main-menu.html">← Main Menu</a>
+    <div class="user-badge" id="userBadge"></div>
+  </div>
+</header>
+
+<div class="page">
+
+  <div class="card no-print">
+    <h2><span class="n">1</span> Select Employee</h2>
+    <div class="field-row two">
+      <div><label>Group</label><select id="grpSelect"><option value="">Loading groups...</option></select></div>
+      <div><label>Employee</label><select id="empSelect"><option value="">Select group first</option></select></div>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <h2><span class="n">2</span> Duration</h2>
+    <div class="btn-row" style="margin-bottom:12px;">
+      <label style="display:inline-flex; align-items:center; gap:6px; text-transform:none; font-size:0.9rem; color:var(--text-hi); margin:0;">
+        <input type="radio" name="duration" value="single" checked style="width:auto;"> Single Day
+      </label>
+      <label style="display:inline-flex; align-items:center; gap:6px; text-transform:none; font-size:0.9rem; color:var(--text-hi); margin:0;">
+        <input type="radio" name="duration" value="multi" style="width:auto;"> Multiple Days
+      </label>
+    </div>
+    <div id="singleDateField" class="field-row two">
+      <div><label>Date</label><input type="date" id="singleDate"></div>
+    </div>
+    <div id="multiDateField" class="field-row two" style="display:none;">
+      <div><label>From Date</label><input type="date" id="fromDate"></div>
+      <div><label>To Date</label><input type="date" id="toDate"></div>
+    </div>
+  </div>
+
+  <div class="card no-print">
+    <h2><span class="n">3</span> Reason</h2>
+    <select id="reasonSelect">
+      <option value="Personal Leave">Personal Leave</option>
+      <option value="Medical Leave">Medical Leave</option>
+      <option value="Official Tour">Official Tour</option>
+      <option value="PME">PME</option>
+      <option value="Meeting">Meeting</option>
+      <option value="Official Work">Official Work</option>
+      <option value="Training">Training</option>
+      <option value="Others">Others</option>
+    </select>
+  </div>
+
+  <div class="card no-print">
+    <h2><span class="n">4</span> Remarks</h2>
+    <textarea id="remarksInput" rows="3" placeholder="Any additional comments or notes..." style="width:100%;"></textarea>
+  </div>
+
+  <div class="card no-print">
+    <button class="btn-amber" id="saveBtn">Save</button>
+    <p style="color:var(--text-mid); font-size:0.8rem; margin-top:10px;">
+      Once saved, this employee will show as unavailable in the Mark Attendance and View Attendance sections for the selected date(s).
+    </p>
+  </div>
+
+  <div class="card">
+    <!-- Print-only header mirroring view-attendance.html dailyPrintHeader styling -->
+    <div id="dailyPrintHeader" class="print-only-header">
+      <div class="print-only-header-line1">MINING 11C</div>
+      <div class="print-only-header-line2">LEAVE INFORMATION REPORT</div>
+      <hr></hr>
+    </div>
+
+    <div class="no-print" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <h2 style="margin:0;">📋 Recent Records</h2>
+      <div class="btn-row" style="margin:0;">
+        <button class="btn-outline btn-sm" id="recordsPrintBtn">🖨 Print</button>
+        <button class="btn-outline btn-sm" id="recordsExportBtn">📊 Export to Excel</button>
+      </div>
+    </div>
+
+    <!-- Enhanced Dual-Filter Layout -->
+    <div class="field-row monthly-filter-row no-print" style="margin-top: 12px;">
+      <div>
+        <label>Filter by Group</label>
+        <select id="filterGroup"><option value="">All Groups</option></select>
+      </div>
+      <div class="date-range-pair">
+        <div>
+          <label>From Date</label>
+          <input type="date" id="filterFromDate">
+        </div>
+        <div>
+          <label>To Date</label>
+          <input type="date" id="filterToDate">
+        </div>
+      </div>
+    </div>
+
+    <div id="recordsHost"><div class="empty-state">Loading...</div></div>
+  </div>
+
+</div>
+
+<div id="modalHost"></div>
+<div id="toastHost"></div>
+
+<script type="module">
+import {
+  db, collection, doc, getDocs, addDoc, deleteDoc, serverTimestamp,
+  todayStr, esc, sortGroups, isEmployeeActive
+} from "./firebase-config.js";
+import { requireAuth, renderUserBadge } from "./auth.js";
+
+const session = requireAuth();
+if (session) {
+  renderUserBadge('userBadge');
+  initLeaveTourPage(session);
+}
+
+function initLeaveTourPage(session) {
+
+function toast(msg,ms=3200){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.getElementById('toastHost').appendChild(t);setTimeout(()=>t.remove(),ms);}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return esc(iso);
+  return `${d}-${m}-${y}`;
+}
+
+const REASON_COLORS = {
+  'Personal Leave': 'var(--blue)',
+  'Medical Leave': 'var(--red)',
+  'Official Tour': 'var(--green)',
+  'PME': 'var(--purple)',
+  'Meeting': 'var(--amber)',
+  'Official Work': 'var(--amber-dim)',
+  'Training': 'var(--blue-dim)',
+  'Others': 'var(--text-lo)'
+};
+function reasonColor(reason) { return REASON_COLORS[reason] || 'var(--purple)'; }
+
+document.getElementById('singleDate').value = todayStr();
+document.getElementById('fromDate').value = todayStr();
+document.getElementById('toDate').value = todayStr();
+
+document.querySelectorAll('input[name="duration"]').forEach(r => r.addEventListener('change', () => {
+  const isMulti = document.querySelector('input[name="duration"]:checked').value === 'multi';
+  document.getElementById('singleDateField').style.display = isMulti ? 'none' : 'grid';
+  document.getElementById('multiDateField').style.display = isMulti ? 'grid' : 'none';
+}));
+
+let allEmployees = [];
+let employeesByGroup = {};       // all employees — drives the Recent Records group filter
+let activeEmployeesByGroup = {}; // Active only — drives the Select Employee picker
+let currentDisplayedRecords = [];
+
+async function loadEmployees() {
+  const snap = await getDocs(collection(db, "employees"));
+  allEmployees = [];
+  snap.forEach(d => allEmployees.push({ id: d.id, ...d.data() }));
+  employeesByGroup = {};
+  activeEmployeesByGroup = {};
+  allEmployees.forEach(e => {
+    const g = e.group || 'Unassigned';
+    (employeesByGroup[g] = employeesByGroup[g] || []).push(e);
+    if (isEmployeeActive(e)) (activeEmployeesByGroup[g] = activeEmployeesByGroup[g] || []).push(e);
+  });
+
+  const allGroups = sortGroups(Object.keys(employeesByGroup));
+  const selectableGroups = sortGroups(Object.keys(activeEmployeesByGroup));
+  const grpSel = document.getElementById('grpSelect');
+  const filterSel = document.getElementById('filterGroup');
+  // "Recent Records" filter covers historical entries, so it stays
+  // unaffected by status and includes every group that has employees.
+  filterSel.innerHTML = `<option value="">All Groups</option>` + allGroups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+  // "Select Employee" is for new records — Inactive employees' groups
+  // are only offered here if they still have an Active employee in them.
+  grpSel.innerHTML = `<option value="">Select group...</option>` + selectableGroups.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+
+  if (selectableGroups.length === 0) {
+    grpSel.innerHTML = `<option value="">No active employees found — import first</option>`;
+  }
+}
+
+document.getElementById('grpSelect').addEventListener('change', () => {
+  const g = document.getElementById('grpSelect').value;
+  const empSel = document.getElementById('empSelect');
+  const list = activeEmployeesByGroup[g] || [];
+  empSel.innerHTML = list.length
+    ? `<option value="" selected disabled>Select Employee</option>` + list.sort((a,b)=>a.name.localeCompare(b.name)).map(e => `<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')
+    : `<option value="">No employees in this group</option>`;
+});
+
+function showModal(title, bodyHtml, buttons) {
+  const host = document.getElementById('modalHost');
+  host.innerHTML = `<div class="overlay"><div class="modal"><h3>${esc(title)}</h3><div>${bodyHtml}</div><div class="btn-row" style="margin-top:16px; justify-content:flex-end;">${buttons}</div></div></div>`;
+  return host;
+}
+function closeModal(){ document.getElementById('modalHost').innerHTML=''; }
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const empId = document.getElementById('empSelect').value;
+  if (!empId) { toast('Select an employee.'); return; }
+  const emp = allEmployees.find(e => e.id === empId);
+  const isMulti = document.querySelector('input[name="duration"]:checked').value === 'multi';
+  const reason = document.getElementById('reasonSelect').value;
+  const remarks = document.getElementById('remarksInput').value.trim();
+
+  let fromDate, toDate, singleDate, msg;
+  if (isMulti) {
+    fromDate = document.getElementById('fromDate').value;
+    toDate = document.getElementById('toDate').value;
+    if (!fromDate || !toDate) { toast('Select from and to dates.'); return; }
+    if (toDate < fromDate) { toast('To date must be after From date.'); return; }
+    msg = `"${emp.name}" has been marked as "${reason}" from ${fromDate} to ${toDate}.`;
+  } else {
+    singleDate = document.getElementById('singleDate').value;
+    if (!singleDate) { toast('Select a date.'); return; }
+    fromDate = singleDate; toDate = singleDate;
+    msg = `"${emp.name}" has been marked as "${reason}" for ${singleDate}.`;
+  }
+
+  try {
+    const existingSnap = await getDocs(collection(db, "leaveRecords"));
+    let conflict = null;
+    existingSnap.forEach(d => {
+      const rec = d.data();
+      if (rec.employeeId === emp.id && rec.fromDate <= toDate && rec.toDate >= fromDate) {
+        conflict = rec;
+      }
+    });
+    if (conflict) {
+      const overlapStart = conflict.fromDate > fromDate ? conflict.fromDate : fromDate;
+      const overlapEnd = conflict.toDate < toDate ? conflict.toDate : toDate;
+      const dateMsg = overlapStart === overlapEnd
+        ? `for ${fmtDate(overlapStart)}`
+        : `from ${fmtDate(overlapStart)} to ${fmtDate(overlapEnd)}`;
+      toast(`${emp.name}'s unavailability has already been marked ${dateMsg}.`, 5000);
+      return;
+    }
+  } catch (e) {
+    toast('Could not verify existing records: ' + e.message, 5000);
+    return;
+  }
+
+  const host = showModal('Confirm', `<p>${esc(msg)}</p>`, `<button class="btn-outline" id="cancelSave">Cancel</button><button class="btn-amber" id="okSave">OK</button>`);
+  host.querySelector('#cancelSave').addEventListener('click', closeModal);
+  host.querySelector('#okSave').addEventListener('click', async () => {
+    try {
+      await addDoc(collection(db, "leaveRecords"), {
+        employeeId: emp.id, employeeName: emp.name, group: emp.group || 'Unassigned',
+        reason, fromDate, toDate, singleDate: singleDate || null,
+        remarks: remarks || null,
+        createdBy: session.username, createdByName: session.displayName,
+        createdAt: serverTimestamp()
+      });
+      closeModal();
+      toast('Record saved.');
+      resetForm();
+      loadRecords();
+    } catch (e) {
+      toast('Save failed: ' + e.message, 5000);
+    }
+  });
+});
+
+function resetForm() {
+  document.getElementById('grpSelect').selectedIndex = 0;
+  document.getElementById('empSelect').innerHTML = `<option value="">Select group first</option>`;
+  document.querySelector('input[name="duration"][value="single"]').checked = true;
+  document.getElementById('singleDateField').style.display = 'grid';
+  document.getElementById('multiDateField').style.display = 'none';
+  document.getElementById('singleDate').value = todayStr();
+  document.getElementById('fromDate').value = todayStr();
+  document.getElementById('toDate').value = todayStr();
+  document.getElementById('reasonSelect').selectedIndex = 0;
+  document.getElementById('remarksInput').value = '';
+}
+
+async function loadRecords() {
+  const host = document.getElementById('recordsHost');
+  host.innerHTML = `<div class="loader"><div class="spinner"></div> Loading...</div>`;
+  
+  const filterGroup = document.getElementById('filterGroup').value;
+  const filterFrom = document.getElementById('filterFromDate').value;
+  const filterTo = document.getElementById('filterToDate').value;
+  
+  try {
+    const snap = await getDocs(collection(db, "leaveRecords"));
+    let records = [];
+    snap.forEach(d => records.push({ id: d.id, ...d.data() }));
+    
+    // Group filtering
+    if (filterGroup) {
+      records = records.filter(r => r.group === filterGroup);
+    }
+    
+    // Coordinated Date Range overlapping calculation logic (Inclusive bounds)
+    if (filterFrom && filterTo) {
+      records = records.filter(r => r.fromDate <= filterTo && r.toDate >= filterFrom);
+    } else if (filterFrom) {
+      records = records.filter(r => r.toDate >= filterFrom);
+    } else if (filterTo) {
+      records = records.filter(r => r.fromDate <= filterTo);
+    }
+    
+    records.sort((a,b) => (b.fromDate||'').localeCompare(a.fromDate||''));
+    records = records.slice(0, 100);
+    currentDisplayedRecords = records;
+
+    if (records.length === 0) { host.innerHTML = `<div class="empty-state">No records found.</div>`; return; }
+    const today = todayStr();
+    host.innerHTML = `<div class="emp-list">` + records.map(r => {
+      const dateBlock = r.fromDate === r.toDate
+        ? `On: ${fmtDate(r.fromDate)}`
+        : `From: ${fmtDate(r.fromDate)}<br>To: ${fmtDate(r.toDate)}`;
+      const dateColor = r.toDate < today ? 'var(--red)' : 'var(--green)';
+      return `
+      <div class="emp-row" style="flex-direction:column; align-items:stretch; position:relative; padding-bottom:${r.createdByName ? '4px' : '9px'};">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+          <div class="emp-name" style="flex:1; min-width:0;">${esc(r.employeeName)} <span class="locked-tag">(${esc(r.group)})</span></div>
+          <div class="controls">
+            <span class="pill" style="background:${reasonColor(r.reason)};">${esc(r.reason)}</span>
+            <button class="btn-sm btn-outline" data-del="${esc(r.id)}">Delete</button>
+          </div>
+        </div>
+        <!-- Customized Remarks Field in application palette blue -->
+        ${r.remarks ? `<div style="margin-top:0px; color:var(--blue); font-size:0.8rem; font-style:italic;">📝 ${esc(r.remarks)}</div>` : ''}
+        <div style="margin-top:2px; font-family:'Share Tech Mono', monospace; font-size:0.80rem; font-weight:700; color:${dateColor}; line-height:1.5;">${dateBlock}</div>
+        ${r.createdByName ? `<span class="locked-tag" style="position:absolute; bottom:6px; right:8px;">By: ${esc(r.createdByName)}</span>` : ''}
+      </div>`;
+    }).join('') + `</div>`;
+
+    host.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+      const rec = records.find(x => x.id === b.dataset.del);
+      if (!rec) return;
+      const durationMsg = rec.fromDate === rec.toDate
+        ? `On: ${fmtDate(rec.fromDate)}`
+        : `From ${fmtDate(rec.fromDate)} to ${fmtDate(rec.toDate)}`;
+      const bodyHtml = `
+        <p><strong>Employee:</strong> ${esc(rec.employeeName)}</p>
+        <p><strong>Leave Type:</strong> ${esc(rec.reason)}</p>
+        <p><strong>Duration:</strong> ${durationMsg}</p>
+        ${rec.remarks ? `<p><strong>Remarks:</strong> ${esc(rec.remarks)}</p>` : ''}
+        ${rec.createdByName ? `<p><strong>Marked By:</strong> ${esc(rec.createdByName)}</p>` : ''}
+        <p>Do you want to delete this record?</p>
+      `;
+      const mHost = showModal('Confirm Delete', bodyHtml, `<button class="btn-outline" id="cancelDel">Cancel</button><button class="btn-red" id="okDel">Delete</button>`);
+      mHost.querySelector('#cancelDel').addEventListener('click', closeModal);
+      mHost.querySelector('#okDel').addEventListener('click', async () => {
+        try {
+          await deleteDoc(doc(db, "leaveRecords", rec.id));
+          closeModal();
+          toast('Record deleted.');
+          loadRecords();
+        } catch (e) {
+          toast('Delete failed: ' + e.message, 5000);
+        }
+      });
+    }));
+  } catch (e) {
+    currentDisplayedRecords = [];
+    host.innerHTML = `<div class="empty-state" style="color:var(--red);">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+// Event hooks to execute updates dynamically across all inputs
+document.getElementById('filterGroup').addEventListener('change', loadRecords);
+document.getElementById('filterFromDate').addEventListener('change', loadRecords);
+document.getElementById('filterToDate').addEventListener('change', loadRecords);
+
+function buildLeavePdfTitle() {
+  const group = document.getElementById('filterGroup').value;
+  return `Leave-Report${group ? '-' + group.replace(/\s+/g,'') : ''}-${todayStr()}`;
+}
+
+document.getElementById('recordsPrintBtn').addEventListener('click', () => {
+  const originalTitle = document.title;
+  document.title = buildLeavePdfTitle();
+  let restored = false;
+  const restoreTitle = () => {
+    if (restored) return;
+    restored = true;
+    document.title = originalTitle;
+    window.removeEventListener('focus', restoreTitle);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
+  const onVisible = () => { if (document.visibilityState === 'visible') restoreTitle(); };
+  window.addEventListener('focus', restoreTitle);
+  document.addEventListener('visibilitychange', onVisible);
+  window.print();
+  setTimeout(restoreTitle, 60000);
+});
+
+document.getElementById('recordsExportBtn').addEventListener('click', () => {
+  if (!currentDisplayedRecords.length) { toast('No records to export.'); return; }
+  
+  // Custom structured output object mapped directly to the designated sheets structure
+  const rows = currentDisplayedRecords.map(r => ({
+    'Employee ID': r.employeeId || '',
+    'Employee Name': r.employeeName || '',
+    'From Date': fmtDate(r.fromDate),
+    'To Date': fmtDate(r.toDate),
+    'Reason': r.reason || '',
+    'Remarks': r.remarks || '',
+    'Submitted By': r.createdByName || r.createdBy || '—'
+  }));
+  
+  try {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Leave Information');
+    XLSX.writeFile(wb, `Leave-Information-${todayStr()}.xlsx`);
+  } catch (e) {
+    toast('Export failed: ' + e.message, 5000);
+  }
+});
+
+(async () => { await loadEmployees(); await loadRecords(); })();
+
+} // end initLeaveTourPage
+</script>
+
+</body>
+</html>
