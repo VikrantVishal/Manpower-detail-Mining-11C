@@ -361,7 +361,7 @@ document.getElementById('dLoadBtn').addEventListener('click', async () => {
         html += `<div class="emp-row"><div class="emp-name"><span class="id">${esc(e.id)}</span>${esc(e.name)} <span class="locked-tag">(OT)</span></div><span class="pill" style="background:${STATUS_COLORS.OT};">Present in OT</span></div>`;
       });
     });
-    if (data.comments) html += `<div class="group-title">Comments</div><p style="color:var(--text-mid); font-size:0.85rem;">${esc(data.comments)}</p>`;
+    if (data.comments) html += `<div class="group-title">Comments</div><p style="color:var(--red); font-size:0.85rem;">${esc(data.comments)}</p>`;
     html += `</div>`;
     host.innerHTML = html;
   } catch (e) {
