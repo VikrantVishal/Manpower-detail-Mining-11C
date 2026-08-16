@@ -79,7 +79,6 @@ export const OTHER_STATUS_OPTIONS = [
   "Public Holiday",
   "General Shift",
   "In other Shift",
-  "Present in OT",
   "Comp-Off"
 ];
 
